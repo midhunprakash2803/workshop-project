@@ -1,349 +1,525 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   QrCode,
   Shield,
-  Briefcase,
-  UserCheck,
   Lock,
   Mail,
   AlertCircle,
-  Sparkles,
   Eye,
   EyeOff,
   CheckCircle2,
-  WifiOff,
-  RefreshCw,
   ArrowRight,
-  Zap
+  Sparkles,
+  User,
+  Layers,
+  Check,
+  KeyRound,
+  ChevronRight,
+  ShieldCheck,
+  Building2,
+  HelpCircle
 } from 'lucide-react';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginWithGoogle, register, resetPassword, createAdminUser } = useAuth();
 
+  // Mode: 'signin' | 'register'
+  const [mode, setMode] = useState('signin');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('BORROWER');
   const [showPassword, setShowPassword] = useState(false);
+  
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [adminSetupLoading, setAdminSetupLoading] = useState(false);
   const [error, setError] = useState('');
-  const [serverStatus, setServerStatus] = useState('checking');
+  const [infoMessage, setInfoMessage] = useState('');
 
-  const checkBackendHealth = async () => {
-    setServerStatus('checking');
-    try {
-      const res = await axios.get(`${API_BASE_URL}/health`, { timeout: 3000 });
-      setServerStatus(res.data?.status === 'ok' ? 'online' : 'offline');
-    } catch {
-      setServerStatus('offline');
-    }
-  };
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
-  useEffect(() => { checkBackendHealth(); }, []);
-
+  // Handle standard Email & Password submit
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!email || !password) { setError('Please enter both email and password.'); return; }
+    setError('');
+    setInfoMessage('');
+
+    if (!email || !password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true); setError('');
-      await login(email.trim(), password);
+      if (mode === 'signin') {
+        await login(email.trim(), password);
+      } else {
+        if (!name.trim()) {
+          setError('Please provide your full name.');
+          setLoading(false);
+          return;
+        }
+        await register(name.trim(), email.trim(), password, role);
+      }
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Invalid email or password.');
+      setError(err.message || 'Authentication error. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = async (role) => {
-    const creds = {
-      ADMIN:    { email: 'admin@rentiq.com',     password: 'Admin@123' },
-      STAFF:    { email: 'staff1@rentiq.com',    password: 'Staff@123' },
-      BORROWER: { email: 'borrower1@rentiq.com', password: 'Borrower@123' }
-    }[role];
-    if (!creds) return;
-    setEmail(creds.email); setPassword(creds.password);
+  // Handle Google Sign-in
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setInfoMessage('');
+    setGoogleLoading(true);
     try {
-      setLoading(true); setError('');
-      await login(creds.email, creds.password);
+      await loginWithGoogle();
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Quick login failed.');
+      setError(err.message || 'Google sign-in could not be completed.');
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
+    }
+  };
+
+  // Handle Reset Password
+  const handleResetPassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!resetEmail) {
+      setError('Please enter your email to receive password reset instructions.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await resetPassword(resetEmail);
+      setResetSuccess(true);
+      setInfoMessage(`Password reset link sent to ${resetEmail}. Check your inbox!`);
+      setTimeout(() => setShowForgotModal(false), 2500);
+    } catch (err) {
+      setError(err.message || 'Could not send password reset email.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  // Handle One-Click Admin Initialization
+  const handleInitAdmin = async () => {
+    setError('');
+    setInfoMessage('');
+    setAdminSetupLoading(true);
+    try {
+      await createAdminUser('Admin@123');
+      setInfoMessage('Admin account (admin@rentiq.com) verified and logged in successfully!');
+      setTimeout(() => navigate('/'), 1200);
+    } catch (err) {
+      setError(err.message || 'Could not setup admin credentials in Firebase.');
+    } finally {
+      setAdminSetupLoading(false);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex"
-      style={{
-        background: 'linear-gradient(135deg, #faf9f7 0%, #f4f2ee 50%, #ede9e3 100%)',
-      }}
-    >
-      {/* Left Panel — Branding */}
-      <div
-        className="hidden lg:flex flex-col justify-between w-96 flex-shrink-0 p-10"
-        style={{
-          background: 'linear-gradient(160deg, #1c1917 0%, #292524 60%, #3d3028 100%)',
-          color: 'white',
-        }}
-      >
-        {/* Logo */}
+    <div className="min-h-screen flex bg-stone-950 text-stone-100 font-sans selection:bg-amber-500 selection:text-stone-950 relative overflow-hidden">
+      
+      {/* Ambient background glowing accents */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Left Panel — Enterprise Brand Showcase */}
+      <div className="hidden lg:flex flex-col justify-between w-[480px] xl:w-[540px] flex-shrink-0 p-12 bg-gradient-to-br from-stone-900/90 via-stone-900/60 to-stone-950 border-r border-stone-800/80 backdrop-blur-xl relative z-10">
+        
+        {/* Brand Header */}
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', boxShadow: '0 4px 12px rgba(180,83,9,0.4)' }}
-          >
-            <QrCode className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-900/30 ring-1 ring-amber-400/30">
+            <QrCode className="w-6 h-6 text-stone-950 stroke-[2.2]" />
           </div>
           <div>
-            <h1
-              className="font-bold text-lg leading-none"
-              style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', letterSpacing: '-0.03em' }}
-            >
-              RentIQ
-            </h1>
-            <p className="text-[10px] font-medium uppercase tracking-widest mt-0.5" style={{ color: '#a8a29e' }}>
-              Asset Tracking
-            </p>
+            <div className="flex items-center gap-2">
+              <h1 className="font-extrabold text-xl tracking-tight text-white">RentIQ</h1>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                Enterprise
+              </span>
+            </div>
+            <p className="text-xs text-stone-400 font-medium">QR-Based Rental & Asset Governance</p>
           </div>
         </div>
 
-        {/* Center Copy */}
-        <div className="space-y-6">
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(217,119,6,0.15)', border: '1px solid rgba(217,119,6,0.25)' }}
-          >
-            <Zap className="w-7 h-7 text-amber-600" />
-          </div>
-          <div className="space-y-3">
-            <h2
-              className="text-3xl font-extrabold leading-tight"
-              style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', letterSpacing: '-0.03em' }}
-            >
-              Smarter asset<br />management
+        {/* Feature Highlights Showcase */}
+        <div className="space-y-8 my-auto">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Real-Time Cloud Synchronization</span>
+            </div>
+            <h2 className="text-3xl xl:text-4xl font-black text-white leading-tight tracking-tight">
+              Enterprise equipment accountability made seamless.
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: '#a8a29e' }}>
-              QR-based checkout, digital accountability inspections, and automated overdue tracking — all in one place.
+            <p className="text-stone-400 text-sm leading-relaxed max-w-md">
+              Securely track rentals, conduct digital pre/post inspections with photo verification, and eliminate double-booking with live Firestore state sync.
             </p>
           </div>
 
-          {/* Feature pills */}
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3.5 pt-2">
             {[
-              'QR Code checkout & returns',
-              'Real-time overdue detection',
-              'Digital damage inspection',
-              'Multi-role access control',
-            ].map((f) => (
-              <div key={f} className="flex items-center gap-2.5 text-xs" style={{ color: '#d6d3d1' }}>
-                <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                {f}
+              {
+                title: 'Live Firestore Real-Time Sync',
+                desc: 'Instant role permissions and rental status updates across devices',
+                icon: Layers
+              },
+              {
+                title: 'High-Fidelity QR Inspections',
+                desc: 'Digital check-in & photographic condition baseline verification',
+                icon: QrCode
+              },
+              {
+                title: 'Automated Overdue Audits',
+                desc: 'Proactive return monitoring and automated alert workflows',
+                icon: Shield
+              }
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3.5 p-3.5 rounded-xl bg-stone-900/50 border border-stone-800/80 hover:border-amber-500/30 transition-all duration-300"
+              >
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 mt-0.5">
+                  <item.icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-stone-200">{item.title}</h4>
+                  <p className="text-xs text-stone-400 mt-0.5 leading-normal">{item.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-[11px]" style={{ color: '#57534e' }}>
-          © 2025 RentIQ. Built for accountability.
-        </p>
+        {/* Footer info */}
+        <div className="flex items-center justify-between text-xs text-stone-500 pt-6 border-t border-stone-800/60">
+          <span>Powered by Google Firebase</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Cloud Services Active
+          </span>
+        </div>
       </div>
 
-      {/* Right Panel — Form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md space-y-6">
-
-          {/* Mobile logo */}
+      {/* Right Panel — Interactive Sign In / Register Form */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 relative z-10 overflow-y-auto">
+        <div className="w-full max-w-md space-y-7">
+          
+          {/* Mobile Header Logo */}
           <div className="flex items-center gap-3 lg:hidden">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-white"
-              style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}
-            >
-              <QrCode className="w-4.5 h-4.5" />
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-stone-950 font-bold shadow-lg shadow-amber-900/30">
+              <QrCode className="w-5 h-5 stroke-[2.2]" />
             </div>
-            <h1 className="font-bold text-lg" style={{ color: '#1c1917', letterSpacing: '-0.03em', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-              RentIQ
-            </h1>
+            <div>
+              <h1 className="font-extrabold text-lg text-white">RentIQ</h1>
+              <p className="text-xs text-stone-400">Enterprise Asset System</p>
+            </div>
           </div>
 
-          {/* Page title */}
-          <div className="space-y-1">
-            <h2
-              className="text-2xl font-extrabold"
-              style={{ color: '#1c1917', fontFamily: '"Plus Jakarta Sans", sans-serif', letterSpacing: '-0.03em' }}
+          {/* Mode Switcher Tabs */}
+          <div className="p-1 rounded-xl bg-stone-900 border border-stone-800 flex">
+            <button
+              type="button"
+              onClick={() => { setMode('signin'); setError(''); setInfoMessage(''); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                mode === 'signin'
+                  ? 'bg-amber-500 text-stone-950 shadow-sm'
+                  : 'text-stone-400 hover:text-white'
+              }`}
             >
-              Welcome back
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('register'); setError(''); setInfoMessage(''); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                mode === 'register'
+                  ? 'bg-amber-500 text-stone-950 shadow-sm'
+                  : 'text-stone-400 hover:text-white'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {/* Title and subtext */}
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              {mode === 'signin' ? 'Welcome back' : 'Create an account'}
             </h2>
-            <p className="text-sm" style={{ color: '#78716c' }}>
-              Sign in to continue to your dashboard.
+            <p className="text-stone-400 text-sm mt-1">
+              {mode === 'signin'
+                ? 'Sign in to access your assets, rentals, and analytics.'
+                : 'Join RentIQ with real-time Firebase authentication.'}
             </p>
-
-            {/* Server status */}
-            <div className="pt-1">
-              {serverStatus === 'online' && (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
-                  style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  API Online
-                </span>
-              )}
-              {serverStatus === 'checking' && (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
-                  style={{ background: '#faf9f7', color: '#a8a29e', border: '1px solid #e2ddd6' }}
-                >
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Checking server...
-                </span>
-              )}
-              {serverStatus === 'offline' && (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
-                  style={{ background: '#fff1f2', color: '#dc2626', border: '1px solid #fecaca' }}
-                >
-                  <WifiOff className="w-3 h-3" />
-                  Backend offline — run npm run dev
-                  <button onClick={checkBackendHealth} title="Retry" className="ml-1 hover:opacity-70">
-                    <RefreshCw className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Quick Demo Buttons */}
-          <div
-            className="p-4 rounded-2xl space-y-3"
-            style={{ background: '#fffbeb', border: '1px solid #fde68a' }}
+          {/* Feedback Messages */}
+          {error && (
+            <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-800/60 text-red-300 text-xs flex items-start gap-2.5 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="leading-normal">{error}</div>
+            </div>
+          )}
+
+          {infoMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs flex items-start gap-2.5 animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div className="leading-normal">{infoMessage}</div>
+            </div>
+          )}
+
+          {/* Google One-Click Sign In */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-stone-900 border border-stone-800 text-stone-200 text-sm font-semibold hover:bg-stone-800 hover:border-stone-700 hover:text-white transition-all duration-200 shadow-sm disabled:opacity-50 group"
           >
-            <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#92400e' }}>
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              Quick Demo Login
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { role: 'ADMIN',    label: 'Admin',    sub: 'Full Access',    icon: Shield,    color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-                { role: 'STAFF',    label: 'Staff',    sub: 'Issue & Inspect', icon: Briefcase, color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
-                { role: 'BORROWER', label: 'Borrower', sub: 'Rent & Return',  icon: UserCheck, color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
-              ].map(({ role, label, sub, icon: Icon, color, bg, border }) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => handleQuickLogin(role)}
-                  disabled={loading}
-                  className="p-3 rounded-xl text-left transition-all"
-                  style={{ background: bg, border: `1.5px solid ${border}` }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 4px 12px ${color}22`; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
-                >
-                  <Icon className="w-4 h-4 mb-1.5" style={{ color }} />
-                  <p className="text-[11px] font-bold leading-tight" style={{ color: '#1c1917' }}>{label}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: '#a8a29e' }}>{sub}</p>
-                </button>
-              ))}
-            </div>
+            {googleLoading ? (
+              <div className="w-5 h-5 border-2 border-stone-400 border-t-amber-400 rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+            )}
+            <span>Continue with Google</span>
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-stone-800" />
+            <span className="text-[11px] uppercase tracking-wider text-stone-500 font-semibold">
+              Or with email
+            </span>
+            <div className="flex-1 h-px bg-stone-800" />
           </div>
 
-          {/* Login Form */}
-          <div
-            className="p-6 rounded-2xl space-y-4"
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2ddd6',
-              boxShadow: '0 2px 8px rgba(28,25,23,0.06), 0 8px 24px rgba(28,25,23,0.04)',
-            }}
-          >
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold" style={{ color: '#44403c' }}>Email Address</label>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Full Name field (Register only) */}
+            {mode === 'register' && (
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1.5">
+                  Full Name
+                </label>
                 <div className="relative">
-                  <Mail className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#a8a29e' }} />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@rentiq.com"
-                    className="glass-input pl-9 text-xs"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Sarah Connor"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-stone-900 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
                   />
                 </div>
               </div>
+            )}
 
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold" style={{ color: '#44403c' }}>Password</label>
-                <div className="relative">
-                  <Lock className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#a8a29e' }} />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="glass-input pl-9 pr-9 text-xs"
-                  />
+            {/* Email field */}
+            <div>
+              <label className="block text-xs font-semibold text-stone-300 mb-1.5">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-stone-900 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Password field */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-stone-300">
+                  Password
+                </label>
+                {mode === 'signin' && (
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                    style={{ color: '#a8a29e' }}
+                    onClick={() => { setShowForgotModal(true); setResetEmail(email); setError(''); }}
+                    className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    Forgot password?
                   </button>
+                )}
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-stone-900 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Role Selector (Register only) */}
+            {mode === 'register' && (
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1.5">
+                  Account Role
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'BORROWER', label: 'Borrower', desc: 'Rent assets' },
+                    { id: 'STAFF',    label: 'Staff',    desc: 'Inspections' },
+                    { id: 'ADMIN',    label: 'Admin',    desc: 'Governance' }
+                  ].map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setRole(r.id)}
+                      className={`p-2.5 rounded-xl text-left border transition-all ${
+                        role === r.id
+                          ? 'bg-amber-500/10 border-amber-500 text-white'
+                          : 'bg-stone-900 border-stone-800 text-stone-400 hover:border-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">{r.label}</span>
+                        {role === r.id && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                      </div>
+                      <p className="text-[10px] text-stone-500 mt-0.5">{r.desc}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
+            )}
 
-              {/* Error */}
-              {error && (
-                <div
-                  className="p-3 rounded-xl flex items-start gap-2 text-xs"
-                  style={{ background: '#fff1f2', border: '1px solid #fecaca', color: '#dc2626' }}
-                >
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">{error}</p>
-                    {error.includes('Cannot connect') && (
-                      <p className="text-[11px] mt-0.5 opacity-80">
-                        Run <code className="bg-red-100 px-1 py-0.5 rounded font-mono">npm run dev</code> from the project root.
-                      </p>
-                    )}
-                  </div>
-                </div>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold text-sm hover:from-amber-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-amber-900/20 disabled:opacity-50 mt-2"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-stone-950 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>{mode === 'signin' ? 'Sign In to RentIQ' : 'Create RentIQ Account'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
               )}
+            </button>
+          </form>
 
-              {/* Submit */}
+          {/* Quick Setup for Administrator Credentials */}
+          <div className="pt-4 border-t border-stone-900">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-stone-900/60 border border-stone-800/80">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-stone-200">Admin Setup</div>
+                  <div className="text-[11px] text-stone-500">Initialize Firebase Admin (admin@rentiq.com)</div>
+                </div>
+              </div>
               <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary w-full py-2.5 text-sm"
+                type="button"
+                onClick={handleInitAdmin}
+                disabled={adminSetupLoading}
+                className="text-xs font-semibold text-amber-400 hover:text-amber-300 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
               >
-                {loading ? (
-                  <><RefreshCw className="w-4 h-4 animate-spin" /> Signing in...</>
-                ) : (
-                  <>Sign In <ArrowRight className="w-4 h-4" /></>
-                )}
+                {adminSetupLoading ? 'Setting up...' : 'Setup / Login'}
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
-            </form>
+            </div>
+          </div>
 
-            <div className="pt-3 text-center text-xs" style={{ borderTop: '1px solid #e2ddd6', color: '#a8a29e' }}>
-              No account?{' '}
-              <Link to="/register" className="font-semibold" style={{ color: '#d97706' }}>
-                Create Borrower Account
-              </Link>
+        </div>
+      </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-sm p-6 rounded-2xl bg-stone-900 border border-stone-800 text-stone-100 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">Reset Password</h3>
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="text-stone-500 hover:text-stone-300 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-stone-400">
+              Enter your account email to receive a password reset link from Google Firebase.
+            </p>
+            <input
+              type="email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="name@company.com"
+              className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-800 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500"
+            />
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="flex-1 py-2 text-xs font-semibold text-stone-400 hover:text-white rounded-lg bg-stone-800 hover:bg-stone-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={resetLoading}
+                className="flex-1 py-2 text-xs font-semibold text-stone-950 bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
+              >
+                {resetLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 };

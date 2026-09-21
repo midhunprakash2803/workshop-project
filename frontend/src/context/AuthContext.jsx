@@ -1,5 +1,26 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  syncUserProfile 
+} from '../config/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  signOut, 
+  sendPasswordResetEmail,
+  updateProfile 
+} from 'firebase/auth';
+import { 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
 
 const AuthContext = createContext(null);
 
@@ -11,88 +32,221 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('rentiq_token') || null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Validate token on mount
+  // Listen to Firebase Auth state & attach real-time Firestore profile listener
   useEffect(() => {
-    const verifyUser = async () => {
-      if (token) {
+    let unsubscribeFirestore = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
         try {
-          const res = await authAPI.getMe();
-          if (res.data.success) {
-            setUser(res.data.user);
-            localStorage.setItem('rentiq_user', JSON.stringify(res.data.user));
-          }
+          const idToken = await firebaseUser.getIdToken();
+          setToken(idToken);
+          localStorage.setItem('rentiq_token', idToken);
+
+          // Synchronize / ensure profile document exists in Firestore
+          await syncUserProfile(firebaseUser);
+
+          // Real-time Firestore listener for live user data management
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          unsubscribeFirestore = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              const profile = {
+                id: firebaseUser.uid,
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                name: data.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+                role: data.role || (firebaseUser.email?.toLowerCase() === 'admin@rentiq.com' ? 'ADMIN' : 'BORROWER'),
+                photoURL: data.photoURL || firebaseUser.photoURL || null,
+                ...data
+              };
+              setUser(profile);
+              localStorage.setItem('rentiq_user', JSON.stringify(profile));
+            }
+          }, (err) => {
+            console.warn('Firestore onSnapshot listener offline/paused:', err.message);
+          });
         } catch (err) {
-          console.warn('Session expired, logging out.');
-          logout();
+          console.error('Error synchronizing Firebase user profile:', err);
         }
+      } else {
+        if (unsubscribeFirestore) {
+          unsubscribeFirestore();
+          unsubscribeFirestore = null;
+        }
+        setUser(null);
+        setToken(null);
+        localStorage.removeItem('rentiq_token');
+        localStorage.removeItem('rentiq_user');
       }
       setIsLoading(false);
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeFirestore) unsubscribeFirestore();
     };
+  }, []);
 
-    verifyUser();
-  }, [token]);
-
+  /**
+   * Email & Password Sign In
+   */
   const login = async (email, password) => {
     try {
-      const res = await authAPI.login({ email, password });
-      if (res.data.success) {
-        setToken(res.data.token);
-        setUser(res.data.user);
-        localStorage.setItem('rentiq_token', res.data.token);
-        localStorage.setItem('rentiq_user', JSON.stringify(res.data.user));
-        return res.data;
-      }
-      throw new Error(res.data.message || 'Login failed');
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const firebaseUser = userCredential.user;
+      const idToken = await firebaseUser.getIdToken();
+      const profile = await syncUserProfile(firebaseUser);
+
+      setToken(idToken);
+      setUser(profile);
+      localStorage.setItem('rentiq_token', idToken);
+      localStorage.setItem('rentiq_user', JSON.stringify(profile));
+      return { success: true, user: profile };
     } catch (err) {
-      const msg = err.response?.data?.message || (err.message === 'Network Error'
-        ? 'Cannot connect to RentIQ backend at http://localhost:5000. Please ensure the backend server is running.'
-        : err.message || 'Login failed. Please check your credentials.');
-      const customErr = new Error(msg);
-      customErr.response = err.response;
-      throw customErr;
+      let friendlyMessage = 'Sign in failed. Please check your credentials.';
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        friendlyMessage = 'Invalid email or password.';
+      } else if (err.code === 'auth/invalid-email') {
+        friendlyMessage = 'Invalid email format.';
+      } else if (err.code === 'auth/too-many-requests') {
+        friendlyMessage = 'Too many attempts. Please try again in a few moments.';
+      } else if (err.message) {
+        friendlyMessage = err.message;
+      }
+      throw new Error(friendlyMessage);
     }
   };
 
-  const register = async (name, email, password) => {
+  /**
+   * Google Sign-In with Popup
+   */
+  const loginWithGoogle = async () => {
     try {
-      const res = await authAPI.register({ name, email, password });
-      if (res.data.success) {
-        setToken(res.data.token);
-        setUser(res.data.user);
-        localStorage.setItem('rentiq_token', res.data.token);
-        localStorage.setItem('rentiq_user', JSON.stringify(res.data.user));
-        return res.data;
-      }
-      throw new Error(res.data.message || 'Registration failed');
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
+      const idToken = await firebaseUser.getIdToken();
+      const profile = await syncUserProfile(firebaseUser);
+
+      setToken(idToken);
+      setUser(profile);
+      localStorage.setItem('rentiq_token', idToken);
+      localStorage.setItem('rentiq_user', JSON.stringify(profile));
+      return { success: true, user: profile };
     } catch (err) {
-      const msg = err.response?.data?.message || (err.message === 'Network Error'
-        ? 'Cannot connect to RentIQ backend at http://localhost:5000. Please ensure the backend server is running.'
-        : err.message || 'Registration failed.');
-      const customErr = new Error(msg);
-      customErr.response = err.response;
-      throw customErr;
+      if (err.code === 'auth/popup-closed-by-user') {
+        throw new Error('Google sign-in popup was closed before completing.');
+      }
+      throw new Error(err.message || 'Google sign-in failed. Please try again.');
     }
   };
 
-  // 1-Click quick role switcher for demonstration & testing
+  /**
+   * Register new user with Email, Password and Role
+   */
+  const register = async (name, email, password, role = 'BORROWER') => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const firebaseUser = userCredential.user;
+
+      // Update Firebase Auth display name
+      if (name) {
+        await updateProfile(firebaseUser, { displayName: name.trim() }).catch(() => {});
+      }
+
+      // Create profile in Firestore
+      const profile = await syncUserProfile(firebaseUser, {
+        name: name.trim(),
+        role: role.toUpperCase()
+      });
+
+      const idToken = await firebaseUser.getIdToken();
+      setToken(idToken);
+      setUser(profile);
+      localStorage.setItem('rentiq_token', idToken);
+      localStorage.setItem('rentiq_user', JSON.stringify(profile));
+      return { success: true, user: profile };
+    } catch (err) {
+      let friendlyMessage = 'Account creation failed.';
+      if (err.code === 'auth/email-already-in-use') {
+        friendlyMessage = 'An account with this email already exists.';
+      } else if (err.code === 'auth/weak-password') {
+        friendlyMessage = 'Password should be at least 6 characters long.';
+      } else if (err.code === 'auth/invalid-email') {
+        friendlyMessage = 'Invalid email address.';
+      } else if (err.message) {
+        friendlyMessage = err.message;
+      }
+      throw new Error(friendlyMessage);
+    }
+  };
+
+  /**
+   * Send Password Reset Email
+   */
+  const resetPassword = async (email) => {
+    if (!email) throw new Error('Please enter your email address.');
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      return { success: true };
+    } catch (err) {
+      throw new Error(err.message || 'Could not send password reset email.');
+    }
+  };
+
+  /**
+   * Create or Ensure Primary Admin Credentials in Firebase
+   */
+  const createAdminUser = async (password = 'Admin@123') => {
+    const adminEmail = 'admin@rentiq.com';
+    try {
+      // Try logging in first
+      try {
+        return await login(adminEmail, password);
+      } catch (loginErr) {
+        // If user doesn't exist, create it
+        if (loginErr.message?.includes('Invalid') || loginErr.message?.includes('not-found')) {
+          const res = await register('System Administrator', adminEmail, password, 'ADMIN');
+          return res;
+        }
+        throw loginErr;
+      }
+    } catch (err) {
+      throw new Error(`Admin setup: ${err.message}`);
+    }
+  };
+
+  /**
+   * Switch Role in Firestore (Updates user permission in real-time)
+   */
   const switchRole = async (targetRole) => {
-    const demoCredentials = {
-      ADMIN: { email: 'admin@rentiq.com', password: 'Admin@123' },
-      STAFF: { email: 'staff1@rentiq.com', password: 'Staff@123' },
-      BORROWER: { email: 'borrower1@rentiq.com', password: 'Borrower@123' }
-    };
-
-    const creds = demoCredentials[targetRole];
-    if (creds) {
-      return await login(creds.email, creds.password);
+    if (!user?.uid) return;
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        role: targetRole,
+        updatedAt: serverTimestamp()
+      });
+      setUser(prev => prev ? ({ ...prev, role: targetRole }) : prev);
+    } catch (err) {
+      console.warn('Could not switch role in Firestore:', err);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('rentiq_token');
-    localStorage.removeItem('rentiq_user');
+  /**
+   * Sign Out
+   */
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.warn('Sign out error:', err);
+    } finally {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem('rentiq_token');
+      localStorage.removeItem('rentiq_user');
+    }
   };
 
   const value = {
@@ -102,7 +256,10 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: Boolean(token && user),
     isLoading,
     login,
+    loginWithGoogle,
     register,
+    resetPassword,
+    createAdminUser,
     switchRole,
     logout
   };

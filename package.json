@@ -13,7 +13,9 @@
     "db:setup": "npm --prefix backend run db:setup",
     "test": "npm --prefix backend test",
     "build": "npm --prefix frontend install && npm --prefix frontend run build",
-    "vercel-build": "npm --prefix frontend install && npm --prefix frontend run build"
+    "vercel-build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "android:sync": "npm --prefix frontend run cap:sync",
+    "android:open": "npm --prefix frontend run cap:open"
   },
   "keywords": [
     "rentiq",
