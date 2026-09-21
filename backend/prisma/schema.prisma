@@ -1,0 +1,197 @@
+// This is your Prisma schema file for PostgreSQL
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  passwordHash    String           @map("password_hash")
+  role            String           @default("BORROWER") // ADMIN, STAFF, BORROWER
+  status          String           @default("ACTIVE") // ACTIVE, SUSPENDED
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  requests        RentalRequest[]  @relation("BorrowerRequests")
+  approvedRequests RentalRequest[] @relation("ApprovedByAdmin")
+  rentalsIssued   Rental[]         @relation("IssuedByStaff")
+  rentalsBorrowed Rental[]         @relation("BorrowedRentals")
+  returnsReceived AssetCondition[] @relation("ReceivedByStaff")
+  damageReports   DamageReport[]   @relation("ReportedByStaff")
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model AssetCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  assets      Asset[]
+
+  @@map("asset_categories")
+}
+
+model Asset {
+  id               String          @id @default(uuid())
+  assetCode        String          @unique @map("asset_code")
+  name             String
+  categoryId       String          @map("category_id")
+  description      String?
+  specifications   String?         // Serialized JSON or formatted specs
+  qrToken          String          @unique @map("qr_token")
+  status           String          @default("AVAILABLE") 
+  // AVAILABLE, REQUESTED, APPROVED, ISSUED, RETURN_INITIATED, INSPECTION, VERIFIED, DAMAGED, MAINTENANCE
+  currentCondition String          @default("EXCELLENT") @map("current_condition")
+  // EXCELLENT, GOOD, FAIR, DAMAGED
+  imageUrl         String?         @map("image_url")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  category         AssetCategory   @relation(fields: [categoryId], references: [id])
+  requests         RentalRequest[]
+  rentals          Rental[]
+  damageReports    DamageReport[]
+  maintenance      Maintenance[]
+
+  @@map("assets")
+}
+
+model RentalRequest {
+  id              String    @id @default(uuid())
+  assetId         String    @map("asset_id")
+  borrowerId      String    @map("borrower_id")
+  startDate       DateTime  @map("start_date")
+  dueDate         DateTime  @map("due_date")
+  purpose         String
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  approvedBy      String?   @map("approved_by")
+  rejectionReason String?   @map("rejection_reason")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  asset           Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  borrower        User      @relation("BorrowerRequests", fields: [borrowerId], references: [id], onDelete: Cascade)
+  approver        User?     @relation("ApprovedByAdmin", fields: [approvedBy], references: [id], onDelete: SetNull)
+  rentals         Rental[]
+
+  @@map("rental_requests")
+}
+
+model Rental {
+  id           String           @id @default(uuid())
+  requestId    String?          @map("request_id")
+  assetId      String           @map("asset_id")
+  borrowerId   String           @map("borrower_id")
+  issuedBy     String           @map("issued_by")
+  issueDate    DateTime         @default(now()) @map("issue_date")
+  dueDate      DateTime         @map("due_date")
+  returnedAt   DateTime?        @map("returned_at")
+  status       String           @default("ACTIVE") 
+  // ACTIVE, OVERDUE, RETURN_INITIATED, INSPECTION, COMPLETED, CANCELLED
+  preCondition String           @default("EXCELLENT") @map("pre_condition")
+  preNotes     String?          @map("pre_notes")
+  prePhotos    String?          @map("pre_photos") // JSON array string
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  request      RentalRequest?   @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  asset        Asset            @relation(fields: [assetId], references: [id])
+  borrower     User             @relation("BorrowedRentals", fields: [borrowerId], references: [id])
+  issuer       User             @relation("IssuedByStaff", fields: [issuedBy], references: [id])
+  conditions   AssetCondition[]
+  damageReports DamageReport[]
+
+  @@map("rentals")
+}
+
+model AssetCondition {
+  id          String   @id @default(uuid())
+  rentalId    String   @map("rental_id")
+  receivedBy  String   @map("received_by")
+  condition   String   // EXCELLENT, GOOD, FAIR, DAMAGED
+  remarks     String?
+  photoUrls   String?  @map("photo_urls") // JSON array string
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rental      Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  receiver    User     @relation("ReceivedByStaff", fields: [receivedBy], references: [id])
+
+  @@map("asset_conditions")
+}
+
+model DamageReport {
+  id          String        @id @default(uuid())
+  assetId     String        @map("asset_id")
+  rentalId    String?       @map("rental_id")
+  reportedBy  String        @map("reported_by")
+  description String
+  severity    String        @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status      String        @default("OPEN") // OPEN, IN_REVIEW, RESOLVED
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  asset       Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  rental      Rental?       @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  reporter    User          @relation("ReportedByStaff", fields: [reportedBy], references: [id])
+  maintenance Maintenance[]
+
+  @@map("damage_reports")
+}
+
+model Maintenance {
+  id                String        @id @default(uuid())
+  assetId           String        @map("asset_id")
+  damageReportId    String?       @map("damage_report_id")
+  description       String
+  maintenanceStatus String        @default("SCHEDULED") @map("maintenance_status") // SCHEDULED, IN_PROGRESS, COMPLETED
+  cost              Float         @default(0.0)
+  startedAt         DateTime?     @map("started_at")
+  completedAt       DateTime?     @map("completed_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  asset             Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  damageReport      DamageReport? @relation(fields: [damageReportId], references: [id], onDelete: SetNull)
+
+  @@map("maintenance")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValue   String?  @map("old_value")
+  newValue   String?  @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

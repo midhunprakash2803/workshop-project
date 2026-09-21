@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "137897175499",
+    "project_id": "workspace-project-32409",
+    "storage_bucket": "workspace-project-32409.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:137897175499:android:9c4e5884b10e1a86886e4e",
+        "android_client_info": {
+          "package_name": "com.midhun"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbBY_rJGGdRWSukQFqXsDZ-gRailjrvkU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

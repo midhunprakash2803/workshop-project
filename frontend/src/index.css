@@ -1,0 +1,305 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-base:       #faf9f7;
+    --bg-surface:    #ffffff;
+    --bg-muted:      #f4f2ee;
+    --bg-subtle:     #ede9e3;
+    --border:        #e2ddd6;
+    --border-strong: #cdc6bb;
+    --text-primary:  #1c1917;
+    --text-secondary:#57534e;
+    --text-muted:    #a8a29e;
+    --accent:        #d97706;       /* warm amber */
+    --accent-light:  #fef3c7;
+    --accent-mid:    #f59e0b;
+    --success:       #16a34a;
+    --success-light: #dcfce7;
+    --danger:        #dc2626;
+    --danger-light:  #fee2e2;
+    --info:          #0369a1;
+    --info-light:    #e0f2fe;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 10% 0%, rgba(217, 119, 6, 0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 90% 100%, rgba(120, 113, 108, 0.04) 0%, transparent 60%);
+  }
+
+  /* Beautiful natural scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg-muted);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9d9188;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+
+  /* === SURFACE CARDS === */
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(28,25,23,0.05), 0 4px 16px rgba(28,25,23,0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .card-hover {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(28,25,23,0.05), 0 4px 16px rgba(28,25,23,0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  }
+  .card-hover:hover {
+    box-shadow: 0 4px 12px rgba(28,25,23,0.10), 0 12px 40px rgba(28,25,23,0.07);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+
+  /* Legacy alias for old code using glass-card */
+  .glass-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(28,25,23,0.05), 0 4px 16px rgba(28,25,23,0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .glass-card-hover {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(28,25,23,0.05);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .glass-card-hover:hover {
+    box-shadow: 0 4px 12px rgba(28,25,23,0.09);
+    border-color: var(--border-strong);
+  }
+
+  /* === INPUTS === */
+  .glass-input, .input-natural {
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 0.5rem 0.875rem;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .glass-input::placeholder, .input-natural::placeholder {
+    color: var(--text-muted);
+  }
+  .glass-input:focus, .input-natural:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
+  }
+
+  /* === BUTTONS === */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    border-radius: 9px;
+    border: none;
+    box-shadow: 0 1px 3px rgba(180,83,9,0.25), 0 3px 10px rgba(180,83,9,0.15);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: -0.01em;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+    box-shadow: 0 2px 6px rgba(180,83,9,0.30), 0 6px 20px rgba(180,83,9,0.18);
+    transform: translateY(-0.5px);
+  }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border);
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.8125rem;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-secondary:hover {
+    background: var(--bg-muted);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+  .btn-secondary:active { transform: scale(0.98); }
+  .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: #dc2626;
+    color: white;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    border-radius: 9px;
+    border: none;
+    box-shadow: 0 1px 3px rgba(220,38,38,0.25);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-danger:hover {
+    background: #b91c1c;
+    box-shadow: 0 3px 10px rgba(220,38,38,0.30);
+    transform: translateY(-0.5px);
+  }
+  .btn-danger:active { transform: scale(0.98); }
+
+  .btn-success {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: #16a34a;
+    color: white;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    border-radius: 9px;
+    border: none;
+    box-shadow: 0 1px 3px rgba(22,163,74,0.25);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-success:hover {
+    background: #15803d;
+    transform: translateY(-0.5px);
+  }
+  .btn-success:active { transform: scale(0.98); }
+
+  /* === BADGE UTILITIES === */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 99px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  /* === TABLE === */
+  .table-natural {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+  .table-natural thead th {
+    padding: 0.625rem 0.875rem;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1.5px solid var(--border);
+    background: var(--bg-muted);
+  }
+  .table-natural tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .table-natural tbody tr:hover {
+    background: var(--bg-muted);
+  }
+  .table-natural tbody td {
+    padding: 0.75rem 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  /* === ANIMATE FADE IN === */
+  .animate-fade-in {
+    animation: fadeIn 0.18s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === PAGE HEADER === */
+  .page-header {
+    padding: 1.5rem 2rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+
+  /* === DIVIDER === */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+}
+
+/* === Print Styles for QR Labels === */
+@media print {
+  body * { visibility: hidden; }
+  #printable-qr-area, #printable-qr-area * { visibility: visible; }
+  #printable-qr-area {
+    position: absolute;
+    left: 0; top: 0; width: 100%;
+  }
+}

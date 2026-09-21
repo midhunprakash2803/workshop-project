@@ -1,0 +1,16 @@
+{
+  "name": "rentiq-fullstack",
+  "version": "1.0.0",
+  "description": "RentIQ: QR-Based Rental Asset Tracking & Return Management System",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "db:setup": "npm --prefix backend run db:setup",
+    "test": "npm --prefix backend test",
+    "build": "npm --prefix frontend run build"
+  },
+  "keywords": ["rentiq", "asset-tracking", "qr-code", "equipment-rental"],
+  "author": "",
+  "license": "ISC"
+}
