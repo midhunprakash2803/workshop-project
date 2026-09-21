@@ -134,8 +134,18 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('rentiq_user', JSON.stringify(profile));
       return { success: true, user: profile };
     } catch (err) {
-      if (err.code === 'auth/popup-closed-by-user') {
-        throw new Error('Google sign-in popup was closed before completing.');
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        throw new Error('Google sign-in was cancelled. Please try again.');
+      }
+      if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname;
+        throw new Error(
+          `This domain (${host}) is not authorized in Firebase Console. ` +
+          `Go to Firebase Console → Authentication → Settings → Authorized domains → Add "${host}".`
+        );
+      }
+      if (err.code === 'auth/popup-blocked') {
+        throw new Error('Popup was blocked by your browser. Please allow popups for this site.');
       }
       throw new Error(err.message || 'Google sign-in failed. Please try again.');
     }

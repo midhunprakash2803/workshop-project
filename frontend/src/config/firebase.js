@@ -51,6 +51,10 @@ try {
 }
 export const db = firestoreInstance;
 export const googleProvider = new GoogleAuthProvider();
+// Force account selection every time (avoids silent cached-account failures in dev)
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
 
 // Initialize analytics safely if supported
 let analytics = null;
